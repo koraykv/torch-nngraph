@@ -15,6 +15,10 @@ function utils.istable(x)
 	return type(x) == 'table' and not torch.typename(x)
 end
 
+function utils.iscriterion(node)
+  return  node.data.module.__metatable['parameters'] == nil
+end
+
 return utils
 
 

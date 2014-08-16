@@ -42,3 +42,6 @@ function Module:__call__(...)
 
 	return mnode
 end
+
+local Criterion = torch.getmetatable('nn.Criterion')
+Criterion.__call__ = Module.__call__
