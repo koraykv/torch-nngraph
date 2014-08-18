@@ -4,6 +4,7 @@ local utils = paths.dofile('utils.lua')
 local istensor = utils.istensor
 local istable = utils.istable
 local istorchclass = utils.istorchclass
+local iscriterion = utils.iscriterion
 
 local function getTotalGradOutput(node)
 	local gradOutput = node.data.gradOutput
@@ -129,7 +130,7 @@ end
 function gModule:runForwardFunction(func,input)
 	if type(func) == "string" then
 		local func_name = func
-		func = function(module,input) return module[func_name](module,input) end
+		func = function(module,input,target) return module[func_name](module,input,target) end
 	end
 	-- For backward compatibility, we allow self.nInputs to be missing.
 	local nInputs = self.nInputs or #self.innode.children
@@ -152,7 +153,7 @@ function gModule:runForwardFunction(func,input)
 			assert(not node.data.module, "the selectindex-handling nodes should have no module")
 			local input = node.data.input
 			assert(#input == 1, "only the splitted node should be the input")
-			assert(istable(input[1]), "the input for a split should be a table")
+			assert(istable(input[1]) or iscriterion(input), "the input for a split should be a table")
 			input = input[1][node.data.selectindex]
 			propagate(node,input)
 		else
@@ -166,7 +167,12 @@ function gModule:runForwardFunction(func,input)
 			if not node.data.module then
 				output = input
 			else
-				output = func(node.data.module,input)
+        if iscriterion(node) then
+          local target = input[2]
+				  output = func(node.data.module,input[1],target)
+        else
+				  output = func(node.data.module,input)
+        end
 			end
 			-- propagate the output to children
 			propagate(node,output)
@@ -232,7 +238,12 @@ function gModule:updateGradInput(input,gradOutput)
 					input = input[1]
 				end
 				local module = node.data.module
-				gradInput = module:updateGradInput(input,gradOutput)
+        if iscriterion(node) then
+          local target = input[2]
+				  gradInput = module:updateGradInput(input[1],target)
+        else
+				  gradInput = module:updateGradInput(input,gradOutput)
+        end
 			end
 			-- propagate the output to children
 			for i,child in ipairs(node.children) do
@@ -287,7 +298,9 @@ function gModule:accGradParameters(input,gradOutput,lr)
 				input = input[1]
 			end
 			-- accGradParameters through this node
-			module:accGradParameters(input,gradOutput,lr)
+      if not iscriterion(node) then
+		   	module:accGradParameters(input,gradOutput,lr)
+      end
 		end
 		if self.verbose then
 			print(' V : ' .. node:label())
@@ -305,7 +318,7 @@ end
 function gModule:parameters()
 	local p,gp = {},{}
 	for _,node in ipairs(self.forwardnodes) do
-		if node.data.module then
+		if node.data.module and not iscriterion(node) then
 			local mp,mgp = node.data.module:parameters()
 			if mp and mgp then
 				for i = 1,#mp do
