@@ -167,7 +167,7 @@ function gModule:runForwardFunction(func,input)
 			if not node.data.module then
 				output = input
 			else
-        if isCriterion(node) then
+        if iscriterion(node) then
           local target = input[2]
 				  output = func(node.data.module,input[1],target)
         else

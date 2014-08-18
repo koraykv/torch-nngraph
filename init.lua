@@ -1,7 +1,6 @@
 
 require 'nn'
 require 'graph'
-
 nngraph = {}
 
 torch.include('nngraph','node.lua')

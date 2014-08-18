@@ -16,7 +16,7 @@ function utils.istable(x)
 end
 
 function utils.iscriterion(node)
-  return  node.data.module.__metatable['parameters'] == nil
+  return tostring(node.data.module.__metatable) == "nn.Criterion"
 end
 
 return utils
