@@ -48,6 +48,7 @@ function gModule:__init(inputs,outputs)
 	-- we will define a dummy output node that connects all output modules
 	-- into itself. This will be the output for the forward graph and
 	-- input point for the backward graph
+  self.fusion = 0
 	local outnode = nngraph.Node({input={}})
 	for i,n in ipairs(outputs) do
 		if torch.typename(n) ~= 'nngraph.Node' then
@@ -232,6 +233,7 @@ function gModule:runForwardFunction(func,input)
 				child.data.input[mapindex] = x
 			end
 		end
+    local dopropagate = true
 		if node.data.selectindex then
 			assert(not node.data.module, "the selectindex-handling nodes should have no module")
 			local input = node.data.input
@@ -250,7 +252,19 @@ function gModule:runForwardFunction(func,input)
 			if not node.data.module then
 				output = input
 			else
-				output = func(node.data.module,input)
+        local module = node.data.module
+        if self.fusion ~= 1 or torch.type(module) ~= 'nn.Narrow' then
+  				output = func(node.data.module,input)
+        else
+          dopropagate = false  -- since we do it ourselves
+          for i=1,#node.children do
+            local child = node.children[i]
+            if child.data.input == nil then
+              child.data.input = {}
+            end
+            child.data.input[#child.data.input + 1] = input:narrow(module.dimension, module.index, module.length)
+          end
+        end
 			end
 			if node.data.nSplitOutputs and node.data.nSplitOutputs ~= #output then
 					error(string.format("split(%s) cannot split %s outputs",
@@ -258,7 +272,9 @@ function gModule:runForwardFunction(func,input)
 						#output))
 			end
 			-- propagate the output to children
-			propagate(node,output)
+      if dopropagate then
+  			propagate(node,output)
+      end
 		end
 		if self.verbose then
 			print(' V : ' .. node:label())
