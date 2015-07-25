@@ -48,6 +48,7 @@ function gModule:__init(inputs,outputs)
 	-- we will define a dummy output node that connects all output modules
 	-- into itself. This will be the output for the forward graph and
 	-- input point for the backward graph
+  self.fusion = 0
 	local outnode = nngraph.Node({input={}})
 	for i,n in ipairs(outputs) do
 		if torch.typename(n) ~= 'nngraph.Node' then
@@ -107,6 +108,12 @@ function gModule:__init(inputs,outputs)
 	for i,forwardNode in ipairs(self.forwardnodes) do
 		forwardNode.data.forwardNodeId = forwardNode.id
 	end
+  self._backwardByModule = {}
+  for i,backwardNode in ipairs(self.backwardnodes) do
+    if backwardNode.data.module ~= nil then
+      self._backwardByModule[backwardNode.data.module] = backwardNode
+    end
+  end
 
 	self.output = nil
 	self.gradInput = nil
@@ -232,6 +239,7 @@ function gModule:runForwardFunction(func,input)
 				child.data.input[mapindex] = x
 			end
 		end
+    local dopropagate = true
 		if node.data.selectindex then
 			assert(not node.data.module, "the selectindex-handling nodes should have no module")
 			local input = node.data.input
@@ -250,7 +258,34 @@ function gModule:runForwardFunction(func,input)
 			if not node.data.module then
 				output = input
 			else
-				output = func(node.data.module,input)
+        local module = node.data.module
+        if self.fusion ~= 1 or torch.type(module) ~= 'nn.Narrow' then
+  				output = func(node.data.module,input)
+        else
+          dopropagate = false  -- since we do it ourselves
+          for i=1,#node.children do
+            local child = node.children[i]
+            if child.data.input == nil then
+              child.data.input = {}
+            end
+            child.data.input[#child.data.input + 1] = input:narrow(module.dimension, module.index, module.length)
+            if child.data.module ~= nil then
+              if not module._resized then
+                module.gradInput:resizeAs(input)
+                module.gradInput:zero()
+                module._resized = true
+              end
+              node.data._shortcircuit_bg = true
+              if torch.type(child.data.module.gradInput) == 'table' then
+                local childBacknode = self._backwardByModule[child.data.module]
+                childbackindex = childBacknode.data.mapindex[node.data]
+                child.data.module.gradInput[childbackindex] = module.gradInput:narrow(module.dimension, module.index, module.length)
+              else
+                child.data.module.gradInput = module.gradInput:narrow(module.dimension, module.index, module.length)
+              end
+            end
+          end
+        end
 			end
 			if node.data.nSplitOutputs and node.data.nSplitOutputs ~= #output then
 					error(string.format("split(%s) cannot split %s outputs",
@@ -258,7 +293,9 @@ function gModule:runForwardFunction(func,input)
 						#output))
 			end
 			-- propagate the output to children
-			propagate(node,output)
+      if dopropagate then
+  			propagate(node,output)
+      end
 		end
 		if self.verbose then
 			print(' V : ' .. node:label())
@@ -321,7 +358,11 @@ function gModule:updateGradInput(input,gradOutput)
 					input = input[1]
 				end
 				local module = node.data.module
-				gradInput = module:updateGradInput(input,gradOutput)
+        if not node.data._shortcircuit_bg then
+  				gradInput = module:updateGradInput(input,gradOutput)
+        else
+          gradInput = module.gradInput
+        end
 			end
 			-- propagate the output to children
 			for i,child in ipairs(node.children) do
