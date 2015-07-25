@@ -108,6 +108,12 @@ function gModule:__init(inputs,outputs)
 	for i,forwardNode in ipairs(self.forwardnodes) do
 		forwardNode.data.forwardNodeId = forwardNode.id
 	end
+  self._backwardByModule = {}
+  for i,backwardNode in ipairs(self.backwardnodes) do
+    if backwardNode.data.module ~= nil then
+      self._backwardByModule[backwardNode.data.module] = backwardNode
+    end
+  end
 
 	self.output = nil
 	self.gradInput = nil
@@ -263,6 +269,21 @@ function gModule:runForwardFunction(func,input)
               child.data.input = {}
             end
             child.data.input[#child.data.input + 1] = input:narrow(module.dimension, module.index, module.length)
+            if child.data.module ~= nil then
+              if not module._resized then
+                module.gradInput:resizeAs(input)
+                module.gradInput:zero()
+                module._resized = true
+              end
+              node.data._shortcircuit_bg = true
+              if torch.type(child.data.module.gradInput) == 'table' then
+                local childBacknode = self._backwardByModule[child.data.module]
+                childbackindex = childBacknode.data.mapindex[node.data]
+                child.data.module.gradInput[childbackindex] = module.gradInput:narrow(module.dimension, module.index, module.length)
+              else
+                child.data.module.gradInput = module.gradInput:narrow(module.dimension, module.index, module.length)
+              end
+            end
           end
         end
 			end
@@ -337,7 +358,11 @@ function gModule:updateGradInput(input,gradOutput)
 					input = input[1]
 				end
 				local module = node.data.module
-				gradInput = module:updateGradInput(input,gradOutput)
+        if not node.data._shortcircuit_bg then
+  				gradInput = module:updateGradInput(input,gradOutput)
+        else
+          gradInput = module.gradInput
+        end
 			end
 			-- propagate the output to children
 			for i,child in ipairs(node.children) do
