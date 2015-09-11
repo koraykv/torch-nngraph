@@ -40,7 +40,7 @@ end
 --
 -- The node.data.gradOutput holds the to-be-summed gradOutputs.
 -- Each node has only one output. So we need only one gradOutput.
-local gModule, parent = torch.class('nn.gModule','nn.Module')
+local gModule, parent = torch.class('nn.gModule', 'nn.Container')
 
 function gModule:__init(inputs,outputs)
    parent.__init(self)
@@ -118,17 +118,21 @@ function gModule:__init(inputs,outputs)
    -- computation on the graph is done through topsort of forward and backward graphs
    self.forwardnodes = self.fg:topsort()
    self.backwardnodes = self.bg:topsort()
-   -- Checking for unused inputs or unused split() outputs.
+
    for i,forwardNode in ipairs(self.forwardnodes) do
-      if forwardNode.data.nSplitOutputs and forwardNode.data.nSplitOutputs ~=  #forwardNode.children then
+      -- Checking for unused inputs or unused split() outputs.
+      if forwardNode.data.nSplitOutputs and forwardNode.data.nSplitOutputs ~= #forwardNode.children then
          local nUnused = forwardNode.data.nSplitOutputs - #forwardNode.children
-         error(string.format("%s of split(%s) outputs are unused", nUnused,
-         forwardNode.data.nSplitOutputs))
+         error(string.format("%s of split(%s) outputs are unused", nUnused, forwardNode.data.nSplitOutputs))
       end
-   end
-   -- Adding data.forwardNodeId for nicer node:label() output.
-   for i,forwardNode in ipairs(self.forwardnodes) do
+
+      -- Adding data.forwardNodeId for nicer node:label() output.
       forwardNode.data.forwardNodeId = forwardNode.id
+
+      -- Add module to container.
+      if forwardNode.data.module then
+         self:add(forwardNode.data.module)
+      end
    end
 
    self.output = nil
@@ -178,14 +182,6 @@ function gModule:share(gm, ...)
    return self
 end
 
-function gModule:training()
-   self:apply(function(module) module:training() end)
-end
-
-function gModule:evaluate()
-   self:apply(function(module) module:evaluate() end)
-end
-
 --[[ Recursively applies type(type_str) to any tensors in the argument. If the
 argument is a tensor, type(type_str) is applied; if the argument is an array,
 this function recurses into it. ]]
@@ -223,10 +219,6 @@ function gModule:type(type)
    end
 
    return self
-end
-
-function gModule:zeroGradParameters()
-   self:apply(function(module) module:zeroGradParameters() end)
 end
 
 function gModule:updateOutput(input)
@@ -426,23 +418,6 @@ function gModule:accGradParameters(input,gradOutput,lr)
       neteval(node)
    end
 end
-
-function gModule:parameters()
-   local p,gp = {},{}
-   for _,node in ipairs(self.forwardnodes) do
-      if node.data.module then
-         local mp,mgp = node.data.module:parameters()
-         if mp and mgp then
-            for i = 1,#mp do
-               table.insert(p,mp[i])
-               table.insert(gp,mgp[i])
-            end
-         end
-      end
-   end
-   return p,gp
-end
-
 
 function gModule:__tostring__()
    return self.name or torch.type(self)
