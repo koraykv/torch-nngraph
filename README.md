@@ -38,7 +38,7 @@ mlp:accGradParameters(x, dx)
 graph.dot(mlp.fg, 'MLP')
 ```
 
-<img src= "https://raw.github.com/koraykv/torch-nngraph/master/doc/mlp.png" width="300px"/>
+<img src= "doc/mlp.png?raw=true" width="300px"/>
 
 Read this diagram from top to bottom, with the first and last nodes being *dummy nodes* that regroup all inputs and outputs of the graph.
 The `module` entry describes the function of the node, as applies to `input`, and producing a result of the shape `gradOutput`; `mapindex` contains pointers to the parent nodes.
@@ -70,7 +70,7 @@ gmod:updateGradInput({x1, x2}, {torch.rand(1), torch.rand(1)})
 graph.dot(gmod.fg, 'Big MLP')
 ```
 
-<img src= "https://raw.github.com/koraykv/torch-nngraph/master/doc/mlp2.png" width="300px"/>
+<img src= "doc/mlp2.png?raw=true" width="300px"/>
 
 
 ### A network with containers
@@ -96,8 +96,8 @@ graph.dot(g.fg, 'Forward Graph')
 graph.dot(g.bg, 'Backward Graph')
 ```
 
-<img src= "https://raw.github.com/koraykv/torch-nngraph/master/doc/mlp3_forward.png" width="300px"/>
-<img src= "https://raw.github.com/koraykv/torch-nngraph/master/doc/mlp3_backward.png" width="300px"/>
+<img src= "doc/mlp3_forward.png?raw=true" width="300px"/>
+<img src= "doc/mlp3_backward.png?raw=true" width="300px"/>
 
 
 ### More fun with graphs
@@ -121,8 +121,8 @@ graph.dot(g.fg, 'Forward Graph')
 graph.dot(g.bg, 'Backward Graph')
 ```
 
-<img src= "https://raw.github.com/koraykv/torch-nngraph/master/doc/mlp4_forward.png" width="300px"/>
-<img src= "https://raw.github.com/koraykv/torch-nngraph/master/doc/mlp4_backward.png" width="300px"/>
+<img src= "doc/mlp4_forward.png?raw=true" width="300px"/>
+<img src= "doc/mlp4_backward.png?raw=true" width="300px"/>
 
 
 ## Annotations
