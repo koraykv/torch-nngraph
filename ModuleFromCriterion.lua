@@ -24,7 +24,17 @@ end
 function ModuleFromCriterion:updateGradInput(input, gradOutput)
    local prediction, target = unpack(input)
    local gradPrediction = self.criterion:updateGradInput(prediction, target)
-   self.gradInput[1]:resizeAs(gradPrediction):copy(gradPrediction):mul(gradOutput[1])
+   if type(gradPrediction) == 'table' then
+      if type(self.gradInput[1]) ~= 'table' then
+        self.gradInput[1] = gradPrediction
+      else
+        for i=1, #gradPrediction do
+            self.gradInput[1][i]:resizeAs(gradPrediction[i]):copy(gradPrediction[i]):mul(gradOutput[1])
+        end
+      end
+   else
+      self.gradInput[1]:resizeAs(gradPrediction):copy(gradPrediction):mul(gradOutput[1])
+   end
    self.gradInput[2]:resizeAs(target):zero()
    return self.gradInput
 end
