@@ -28,7 +28,7 @@ function ModuleFromCriterion:updateGradInput(input, gradOutput)
       if type(self.gradInput[1]) ~= 'table' then
          self.gradInput[1] = {} -- initializing to table first time if it is tensor (which it is: line 10)
          for i=1, #gradPrediction do
-            self.gradInput[1][i] = gradPrediction[i]:clone() -- and putting tensors of right size inside.
+            self.gradInput[1][i] = gradPrediction[i].new() -- and putting tensors of right size inside.
          end
       end
       for i=1, #gradPrediction do
