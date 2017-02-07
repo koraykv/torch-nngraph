@@ -405,6 +405,7 @@ function test.test_gradInputType()
          return self.output
       end
       dummyModule.updateGradInput = function(self, input, gradOutput)
+         local unpack = unpack or table.unpack
          local zeroTensor = torch.Tensor{0}
           :view(unpack(torch.ones(input:dim()):totable()))
           :expandAs(input)
