@@ -51,7 +51,7 @@ end
 -- Each node of the graph can have multiple inputs.
 -- The order of inputs is remembered in node.data.mapindex.
 --
--- Each node have only one output.
+-- Each node have only one output. (but see node:split() function)
 -- The output can be also a table.
 -- To route parts of the outputted table to different modules,
 -- use the node:split(nOutputs) function.
