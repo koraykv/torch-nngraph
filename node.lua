@@ -137,7 +137,8 @@ function nnNode:label()
       elseif istable(data) then
          local tstr = {}
          for i,v in ipairs(data) do
-            table.insert(tstr, getstr(v))
+            local gsv = getstr(v) -- avoids luajit error for type(v)='string'
+            table.insert(tstr, gsv)
          end
          return '{' .. table.concat(tstr,',') .. '}'
       else
